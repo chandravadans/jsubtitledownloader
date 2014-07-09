@@ -27,6 +27,7 @@ public class Driver {
 			for(File f:files){
 				osdl.downloadSubtitle(f);
 			}
+			frame.dispose();
 			return;
 		}
 		File ipFile=new File(inp); 
