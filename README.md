@@ -3,6 +3,10 @@ jsubtitledownloader
 
 Automatically download english subtitles for a TV Series/Movie from opensubtitles.org
 
+## Dependencies
+
+* Apache ws-xmlrpc 
+* Apache ws-commons
 
 ##Known Bugs
 
