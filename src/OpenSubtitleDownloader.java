@@ -242,7 +242,7 @@ public class OpenSubtitleDownloader {
 			e.printStackTrace();
 		}
 		Object[]subs=(Object[])result.get("data");
-		System.out.println(subs.length+"Subtitles found!");
+		System.out.println(subs.length+" Subtitles found!");
 		for(int i=0;i<subs.length;i++){
 
 			HashMap<?, ?> res = (HashMap<?, ?>) subs[i];
