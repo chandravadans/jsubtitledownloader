@@ -29,11 +29,14 @@ public class OpenSubtitleDownloader {
 	XmlRpcClientConfigImpl config=null;
 	XmlRpcClient client=null;
 	boolean moreToDownload=true;
+	boolean searchByName=false;
 	Movie thisMovie=null;
 	BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
 
 	public void downloadSubtitle(File file) throws NumberFormatException, IOException{
 
+		System.out.println("Downloading subtitle for "+file.getName());
+		
 		//Step 1. Do login and get token
 		String token=this.doLogin();
 		if(token==null){
@@ -48,9 +51,9 @@ public class OpenSubtitleDownloader {
 			fileHash=h.computeHashForOsub(file);
 		} catch (IOException e) {
 			System.out.println("Error Calculating hash! Exiting..");
-			e.printStackTrace();
+			e.getMessage();
 			doLogout(token);
-			doLogout(token);System.exit(1);
+			System.exit(1);
 		}
 
 		thisMovie=new Movie();
@@ -61,10 +64,10 @@ public class OpenSubtitleDownloader {
 
 		//Step 3. Search for subtitles and get a list of possible subtitles
 		ArrayList<Subtitle> possible=new ArrayList<Subtitle>();
-		possible=searchForSubtitles(thisMovie);
+		possible=searchForSubtitlesByHash(thisMovie);
 
 		if(possible.size()<1){
-			System.out.println("Exact match not found. Doing a name search!");
+			System.out.println("Exact match not found. Doing a name search.");
 
 			possible=searchForSubtitlesByName();
 
@@ -79,7 +82,7 @@ public class OpenSubtitleDownloader {
 		//Step 4. Choose and keep downloading
 		selectAndDownload(possible);
 
-		while(moreToDownload){
+		while(moreToDownload||searchByName){
 
 			System.out.println("Doing a namesearch.");
 			possible=searchForSubtitlesByName();
@@ -104,7 +107,7 @@ public class OpenSubtitleDownloader {
 		} catch (MalformedURLException e) {
 
 			System.out.println("Malformed RPC URL! Exiting..");
-			e.printStackTrace();
+			e.getMessage();
 			doLogout(token);System.exit(1);
 		}
 
@@ -117,7 +120,7 @@ public class OpenSubtitleDownloader {
 		} catch (XmlRpcException e) {
 
 			System.out.println("Exception in executing RPC call for login! Exiting..");
-			e.printStackTrace();
+			e.getMessage();
 			doLogout(token);System.exit(1);
 		}
 		token=(String)result.get("token");
@@ -135,7 +138,7 @@ public class OpenSubtitleDownloader {
 		} catch (XmlRpcException e) {
 
 			System.out.println("Error while logging out! Exiting..");
-			e.printStackTrace();
+			e.getMessage();
 			doLogout(token);System.exit(1);
 		}
 		System.out.println("Logged out with status "+result.get("status")+" in "+result.get("seconds")+"s");
@@ -156,12 +159,18 @@ public class OpenSubtitleDownloader {
 	void selectAndDownload(ArrayList<Subtitle> subs) throws NumberFormatException, IOException{
 
 		boolean oneMore=true;
+		searchByName=false;
 		while(oneMore){
 
 			displayPossibleSubs(subs);
-			System.out.println("Select index of sub to download: ");
-			Integer idx=Integer.parseInt(in.readLine());//in.nextInt();
-			downloadSub(subs.get(idx));
+			System.out.println("Select index of sub to download, or type 'x' to try a namesearch: ");
+			String id=in.readLine();
+			if(id.equalsIgnoreCase("x")){
+				searchByName=true;
+				return;
+			}
+			Integer idx=Integer.parseInt(id);
+			downloadSubtitleSrt(subs.get(idx));
 			subs.remove(subs.get(idx));
 			if(!subs.isEmpty()){
 				System.out.println("Test the sub out, I'll wait. If it doesn't work, we could download another one :)");
@@ -183,7 +192,7 @@ public class OpenSubtitleDownloader {
 		}
 	}
 
-	void downloadSub(Subtitle sub){
+	void downloadSubtitleSrt(Subtitle sub){
 
 		String Url=sub.getSubDownloadLink();
 		String gzipFileName=thisMovie.getTitle()+".gz";
@@ -195,7 +204,7 @@ public class OpenSubtitleDownloader {
 			fos.close();
 		}
 		catch(Exception e){
-			e.printStackTrace();
+			e.getMessage();
 		}
 
 		String srtFileName=thisMovie.getTitle().substring(0, thisMovie.getTitle().length() - 4)+".srt";
@@ -216,12 +225,12 @@ public class OpenSubtitleDownloader {
 			fos.close();
 			gis.close();
 		} catch (IOException e) {
-			e.printStackTrace();
+			e.getMessage();
 		}
 		new File(gzipFile).delete();
 	}
 
-	ArrayList<Subtitle> searchForSubtitles(Movie movie){
+	ArrayList<Subtitle> searchForSubtitlesByHash(Movie movie){
 
 		ArrayList<Subtitle> results=new ArrayList<Subtitle>();
 
@@ -238,8 +247,16 @@ public class OpenSubtitleDownloader {
 		try {
 			result = (HashMap<?, ?>) client.execute("SearchSubtitles", args);
 		} catch (XmlRpcException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+
+			e.getMessage();
+		}
+
+		try{
+			Object dat=(Object)result.get("data");
+		}
+		catch(Exception e){
+			System.out.println("Sorry, server seems to be busy. Try again! ");
+			return results;
 		}
 		Object[]subs=(Object[])result.get("data");
 		System.out.println(subs.length+" Subtitles found!");
@@ -297,6 +314,15 @@ public class OpenSubtitleDownloader {
 
 			Object[] args=new Object[]{token,new Object[]{subParams}};
 			HashMap<?, ?> result = (HashMap<?, ?>) client.execute("SearchSubtitles", args);
+			
+			try{
+				Object dat=(Object)result.get("data");
+			}
+			catch(Exception e){
+				System.out.println("Sorry, server seems to be busy. Try again! ");
+				return results;
+			}
+			
 			Object[]subs=(Object[])result.get("data");
 			System.out.println(subs.length+"Subtitles found!");
 			for(int i=0;i<subs.length;i++){
@@ -311,7 +337,7 @@ public class OpenSubtitleDownloader {
 			}
 		}
 		catch(Exception e){
-			e.printStackTrace();
+			e.getMessage();
 		}
 		return results;
 	}
